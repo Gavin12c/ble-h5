@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bluetooth Device</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      font-size: 18px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 24px;
+    }
+
+    .buttonContainer {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #logContainer {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 16px;
+    }
+
+    .clearButton {
+      display: block;
+      margin: 0 auto;
+      padding: 12px 24px;
+      font-size: 20px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bluetooth Device</h1>
+    <div class="buttonContainer">
+      <button onclick="onButtonClick()">Search</button>
+    </div>
+    <div id="logContainer"></div>
+    <button class="clearButton" onclick="clearLogs()">Clear Logs</button>
+  </div>
+
+  <script>
+    let device;
+    let logs = [];
+
+    async function onButtonClick() {
+      let options = {};
+      options.acceptAllDevices = true;
+
+      try {
+        log('Requesting Bluetooth Device...');
+        log('with ' + JSON.stringify(options));
+        device = await navigator.bluetooth.requestDevice(options);
+
+        log('> Name:             ' + device.name);
+        log('> Id:               ' + device.id);
+        log('> Connected:        ' + device.gatt.connected);
+
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+        await device.gatt.connect();
+        log('Bluetooth Device connected');
+        device.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+        await startNotifications();
+      } catch(error) {
+        log('Argh! ' + error);
+      }
+    }
+
+    function onDisconnected(event) {
+      log('Bluetooth Device disconnected');
+    }
+
+    async function startNotifications() {
+      try {
+        const service = await device.gatt.getPrimaryService('your_service_uuid');
+        const characteristic = await service.getCharacteristic('your_characteristic_uuid');
+        await characteristic.startNotifications();
+        log('Notifications started');
+      } catch(error) {
+        log('Argh! ' + error);
+      }
+    }
+
+    function handleCharacteristicValueChanged(event) {
+      const value = event.target.value;
+      const message = new TextDecoder().decode(value);
+      log('Received: ' + message);
+    }
+
+    function log(message) {
+      logs.push(message);
+      const logElement = document.createElement('p');
+      logElement.textContent = message;
+      document.getElementById('logContainer').appendChild(logElement);
+      document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
+    }
+
+    function clearLogs() {
+      logs = [];
+      document.getElementById('logContainer').innerHTML = '';
+      localStorage.removeItem('logs');
+    }
+
+    window.addEventListener('beforeunload', function() {
+      localStorage.setItem('logs', JSON.stringify(logs));
+    });
+
+    window.addEventListener('load', function() {
+      const storedLogs = localStorage.getItem('logs');
+      if (storedLogs) {
+        logs = JSON.parse(storedLogs);
+        for (const message of logs) {
+          const logElement = document.createElement('p');
+          logElement.textContent = message;
+          document.getElementById('logContainer').appendChild(logElement);
+        }
+        document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
+      }
+    });
+  </script>
+</body>
+</html>
