@@ -1,152 +1,285 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Bluetooth Device</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      font-size: 18px;
-    }
+    <title>Bluetooth Device</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 18px;
+        }
 
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-    h1 {
-      text-align: center;
-      font-size: 24px;
-    }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+        }
 
-    .buttonContainer {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
+        .buttonContainer {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
 
-    button {
-      padding: 12px 24px;
-      font-size: 20px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
+        button {
+            padding: 12px 24px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
 
-    #logContainer {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-bottom: 20px;
-      max-height: 400px;
-      overflow-y: auto;
-      font-size: 16px;
-    }
+        #logContainer {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 16px;
+        }
 
-    .clearButton {
-      display: block;
-      margin: 0 auto;
-      padding: 12px 24px;
-      font-size: 20px;
-      background-color: #f44336;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-  </style>
+        .clearButton {
+            display: block;
+            margin: 0 auto;
+            padding: 12px 24px;
+            font-size: 20px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
+<span id="connectionStatusIcon" style="color: red;">&#x1F534;</span> <!-- Red circle for disconnected -->
+<style>
+  .connected { color: green; }
+  .disconnected { color: red; }
+</style>
+
+<div class="container">
     <h1>Bluetooth Device</h1>
     <div class="buttonContainer">
-      <button onclick="onButtonClick()">Search</button>
+        <button onclick="onButtonClick()">Search</button>
     </div>
     <div id="logContainer"></div>
     <button class="clearButton" onclick="clearLogs()">Clear Logs</button>
-  </div>
+    <button class="clearButton" id="sendStart">Start</button>
+</div>
 
-  <script>
+<script>
     let device;
     let logs = [];
 
+    let serviceId = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E',
+        characteristicIdNotify = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E',
+        characteristicIdWrite = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
+
     async function onButtonClick() {
-      let options = {};
-      options.acceptAllDevices = true;
+        let options = {
+            acceptAllDevices: true,
+            filters: [{name: 'AKH_001'}]
+        };
 
-      try {
-        log('Requesting Bluetooth Device...');
-        log('with ' + JSON.stringify(options));
-        device = await navigator.bluetooth.requestDevice(options);
+        try {
+            log('Requesting Bluetooth Device...');
+            log('with ' + JSON.stringify(options));
+            device = await navigator.bluetooth.requestDevice(options);
 
-        log('> Name:             ' + device.name);
-        log('> Id:               ' + device.id);
-        log('> Connected:        ' + device.gatt.connected);
+            log('> Name:             ' + device.name);
+            log('> Id:               ' + device.id);
+            log('> Connected:        ' + device.gatt.connected);
 
-        device.addEventListener('gattserverdisconnected', onDisconnected);
-        await device.gatt.connect();
-        log('Bluetooth Device connected');
-        device.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
-        await startNotifications();
-      } catch(error) {
-        log('Argh! ' + error);
-      }
+            device.addEventListener('gattserverdisconnected', onDisconnected);
+            await device.gatt.connect().then(() => {
+              // Existing logic...
+              updateConnectionStatus(true);
+            })
+                    .catch(error => {
+                      // Existing logic...
+                      updateConnectionStatus(false);
+                    });
+            log('Bluetooth Device connected');
+            device.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+            await startNotifications();
+        } catch (error) {
+            log('Argh! ' + error);
+        }
     }
 
     function onDisconnected(event) {
-      log('Bluetooth Device disconnected');
+        log('Bluetooth Device disconnected');
     }
 
     async function startNotifications() {
-      try {
-        const service = await device.gatt.getPrimaryService('your_service_uuid');
-        const characteristic = await service.getCharacteristic('your_characteristic_uuid');
-        await characteristic.startNotifications();
-        log('Notifications started');
-      } catch(error) {
-        log('Argh! ' + error);
-      }
+        try {
+            const service = await device.gatt.getPrimaryService(serviceId);
+            const characteristic = await service.getCharacteristic(characteristicIdNotify);
+            await characteristic.startNotifications();
+            log('Notifications started');
+        } catch (error) {
+            log('Argh! ' + error);
+        }
     }
 
+    //监听信息
     function handleCharacteristicValueChanged(event) {
-      const value = event.target.value;
-      const message = new TextDecoder().decode(value);
-      log('Received: ' + message);
+        const value = event.target.value;
+        const message = new TextDecoder().decode(value);
+        log('Received: ' + message);
+
+        const d = this.parseData(message);
+        console.log(d)
+        if (d && d.identifier === '81') {
+            if (d.dataLength > 1) {
+                const tag = d.data.slice(0, 4)
+                if (tag === '0290') {
+                    const statusMessages = {
+                        '01': this.$t('wine.sta01'),
+                        '02': this.$t('wine.sta02'),
+                        '03': this.$t('wine.sta03'),
+                        '04': this.$t('wine.sta04'),
+                        '05': this.$t('wine.sta05'),
+                        '06': this.$t('wine.sta06')
+                    };
+                    const sta = d.data.slice(4, 6);
+                    console.log(statusMessages[sta])
+                    // uni.showToast({
+                    //   title: statusMessages[sta],
+                    //   duration: 2000
+                    // });
+                } else if (tag === '0390') {
+                    const valL = parseInt(d.data.slice(4, 6), 16); // 低值
+                    const valH = parseInt(d.data.slice(6, 8), 16); // 高值
+                    const alc = (valH * 256 + valL); // 单位为: mg/100ml
+                    // %BAC = mg/100ml / 1000
+                    // mg/L = mg/100ml / 200
+                    console.log('酒精含量：', alc);
+                    log(new Date(), alc + 'mg/100ml');
+                }
+            } else if (d.dataLength === 0) {
+                console.log('==> 成功切换设备显示单位');
+            }
+        }
     }
 
+    //输出日志
     function log(message) {
-      logs.push(message);
-      const logElement = document.createElement('p');
-      logElement.textContent = message;
-      document.getElementById('logContainer').appendChild(logElement);
-      document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
+        logs.push(message);
+        const logElement = document.createElement('p');
+        logElement.textContent = message;
+        document.getElementById('logContainer').appendChild(logElement);
+        document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
     }
 
     function clearLogs() {
-      logs = [];
-      document.getElementById('logContainer').innerHTML = '';
-      localStorage.removeItem('logs');
+        logs = [];
+        document.getElementById('logContainer').innerHTML = '';
+        localStorage.removeItem('logs');
     }
 
-    window.addEventListener('beforeunload', function() {
-      localStorage.setItem('logs', JSON.stringify(logs));
+    window.addEventListener('beforeunload', function () {
+        localStorage.setItem('logs', JSON.stringify(logs));
     });
 
-    window.addEventListener('load', function() {
-      const storedLogs = localStorage.getItem('logs');
-      if (storedLogs) {
-        logs = JSON.parse(storedLogs);
-        for (const message of logs) {
-          const logElement = document.createElement('p');
-          logElement.textContent = message;
-          document.getElementById('logContainer').appendChild(logElement);
+    //加载启动
+    window.addEventListener('load', function () {
+        onButtonClick(); // 自动触发搜索和连接
+
+        const storedLogs = localStorage.getItem('logs');
+        if (storedLogs) {
+            logs = JSON.parse(storedLogs);
+            for (const message of logs) {
+                const logElement = document.createElement('p');
+                logElement.textContent = message;
+                document.getElementById('logContainer').appendChild(logElement);
+            }
+            document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
         }
-        document.getElementById('logContainer').scrollTop = document.getElementById('logContainer').scrollHeight;
-      }
     });
-  </script>
+
+    document.getElementById('sendStart').addEventListener('click', function () {
+        sendHexData();
+    });
+
+    //发送指令
+    async function sendHexData() {
+        if (!device || !device.gatt.connected) {
+            log('Device is not connected.');
+            return;
+        }
+
+        let hexString = "68999999999999680102000290FB16";
+        let data = new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+
+        device.gatt.getPrimaryService(serviceId) // 替换为适当的服务UUID
+            .then(service => service.getCharacteristic(characteristicIdWrite)) // 替换为适当的特性UUID
+            .then(characteristic => characteristic.writeValue(data))
+            .then(() => log('Hex data sent: ' + hexString))
+            .catch(error => log('Error: ' + error));
+    }
+
+    //解析
+    function parseData(str) {
+        // 去除空格并将字符串转换为大写
+        //str = str.replace(/\s/g, '').toUpperCase();
+        str = str.toUpperCase();
+
+        // 判断字符串是否以指定格式开头和结尾
+        if (str.startsWith('68') && str.endsWith('16')) {
+            // 提取mac地址
+            const macAddress = str.slice(2, 14);
+
+            // 提取识别字
+            const identifier = str.slice(16, 18);
+
+            // 提取数据长度
+            const dataLength = parseInt(str.slice(20, 22) + str.slice(18, 20), 16);
+
+            // 提取数据data
+            const data = str.slice(22, 22 + dataLength * 2);
+
+            // 提取校验码
+            const checksum = str.substring(22 + dataLength * 2, 22 + dataLength * 2 + 2);
+
+            //验证校验码
+            const calcCS = this.calcCS(str.substring(0, 22 + dataLength * 2));
+            if (calcCS != checksum) {
+                console.log('校验码不正确', calcCS, checksum, str);
+                return null;
+            }
+
+            // 判断识别字是 81 还是 C1
+            if (identifier === '81') {
+                console.log('正常81', str);
+            } else if (identifier === 'C1') {
+                console.log('异常C1', str);
+            } else {
+                console.log('未知的识别字', str);
+            }
+
+            // 返回提取的数据
+            return {
+                macAddress,
+                identifier,
+                dataLength,
+                data,
+                checksum
+            };
+        } else {
+            console.log('指令格式不正确', str);
+            return null;
+        }
+    }
+</script>
 </body>
 </html>
