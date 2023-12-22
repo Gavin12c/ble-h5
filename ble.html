@@ -86,9 +86,10 @@
 
     async function onButtonClick() {
         let options = {
-
+            acceptAllDevices: true,
+            filters: [{name: 'AKH_001'}]
         };
-		options.acceptAllDevices = true;
+
 
         try {
             log('Requesting Bluetooth Device...');
@@ -193,8 +194,6 @@
 
     //加载启动
     window.addEventListener('load', function () {
-        onButtonClick(); // 自动触发搜索和连接
-
         const storedLogs = localStorage.getItem('logs');
         if (storedLogs) {
             logs = JSON.parse(storedLogs);
