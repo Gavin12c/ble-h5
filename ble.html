@@ -86,9 +86,9 @@
 
     async function onButtonClick() {
         let options = {
-            acceptAllDevices: true,
-            filters: [{name: 'AKH_001'}]
+
         };
+		options.acceptAllDevices = true;
 
         try {
             log('Requesting Bluetooth Device...');
