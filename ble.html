@@ -11,7 +11,7 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -23,13 +23,14 @@
 
         .buttonContainer {
             display: flex;
-            justify-content: center;
+            justify-content: space-around;
             margin-bottom: 20px;
         }
 
         button {
+			margin-top: 50px;
             padding: 12px 24px;
-            font-size: 20px;
+            font-size: 40px;
             background-color: #4CAF50;
             color: white;
             border: none;
@@ -40,40 +41,54 @@
         #logContainer {
             border: 1px solid #ccc;
             padding: 10px;
-            margin-bottom: 20px;
-            max-height: 400px;
+            margin: 0 auto; /* 让日志居中 */
+            height: 800px;
             overflow-y: auto;
-            font-size: 16px;
+            font-size: 24px; /* 调整字体 */
+			text-align: center; /* 让日志内容居中 */
         }
+		
+		.searchButton {
+			padding: 12px 24px;
+			font-size: 40px;
+			background-color: #007bff; /* 蓝色 */
+			color: white;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+		}
 
-        .clearButton {
-            display: block;
-            margin: 0 auto;
-            padding: 12px 24px;
-            font-size: 20px;
-            background-color: #f44336;
+		.clearButton {
+			padding: 12px 24px;
+            font-size: 60px;
+            background-color: #6c757d;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 20px;
             cursor: pointer;
         }
+
+		.startButton {
+			display: block;
+			margin: 50px auto 0; /* 让按钮居中并在顶部留出20px的空间 */
+			padding: 20px 40px; /* 修改按钮的内边距 */
+			font-size: 120px; /* 修改按钮的字体大小 */
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 20px;
+			cursor: pointer;
+		}
     </style>
 </head>
 <body>
-<span id="connectionStatusIcon" style="color: red;">&#x1F534;</span> <!-- Red circle for disconnected -->
-<style>
-  .connected { color: green; }
-  .disconnected { color: red; }
-</style>
-
 <div class="container">
-    <h1>Bluetooth Device</h1>
     <div class="buttonContainer">
-        <button onclick="onButtonClick()">Search</button>
+        <button class="searchButton" onclick="onButtonClick()">Search Device</button>
+		<button class="clearButton" onclick="clearLogs()">Clear Logs</button>
     </div>
     <div id="logContainer"></div>
-    <button class="clearButton" onclick="clearLogs()">Clear Logs</button>
-    <button class="clearButton" id="sendStart">Start</button>
+    <button class="startButton" id="sendStart">Start</button>
 </div>
 
 <script>
@@ -213,7 +228,7 @@
     //发送指令
     async function sendHexData() {
         if (!device || !device.gatt.connected) {
-            log('Device is not connected.');
+            alert('Device is not connected.');
             return;
         }
 
