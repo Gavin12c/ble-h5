@@ -85,7 +85,7 @@
 <div class="container">
     <div class="buttonContainer">
         <button class="searchButton" onclick="onButtonClick()">Search Device</button>
-		<button class="clearButton" onclick="clearLogs()">Clear Logs</button>
+		<button class="clearButton" onclick="clearLogs()">Clear</button>
     </div>
     <div id="logContainer"></div>
     <button class="startButton" id="sendStart">Start</button>
@@ -95,45 +95,62 @@
     let device;
     let logs = [];
 
-    let serviceId = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E',
-        characteristicIdNotify = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E',
-        characteristicIdWrite = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
+    let serviceId = '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+        characteristicIdNotify = '6e400003-b5a3-f393-e0a9-e50e24dcca9e',
+        characteristicIdWrite = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
     async function onButtonClick() {
         let options = {
             acceptAllDevices: false,
-            filters: [{name: 'AKH_001'}]
+            filters: [{name: 'AKH_001'}],
+			optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] // 服务 UUID
         };
 
 
         try {
-            log('Requesting Bluetooth Device...');
-            log('with ' + JSON.stringify(options));
+            //log('Requesting Bluetooth Device...');
+            //log('with ' + JSON.stringify(options));
             device = await navigator.bluetooth.requestDevice(options);
 
-            log('> Name:             ' + device.name);
-            log('> Id:               ' + device.id);
-            log('> Connected:        ' + device.gatt.connected);
+            //log('> Name:             ' + device.name);
+            //log('> Id:               ' + device.id);
+            //log('> Connected:        ' + device.gatt.connected);
 
             device.addEventListener('gattserverdisconnected', onDisconnected);
             await device.gatt.connect().then(() => {
               // Existing logic...
-              updateConnectionStatus(true);
-            })
-                    .catch(error => {
+              //updateConnectionStatus(true);
+			  //alert('Connected:        ' + device.gatt.connected);
+            }).catch(error => {
                       // Existing logic...
-                      updateConnectionStatus(false);
+                      //updateConnectionStatus(false);
                     });
-            log('Bluetooth Device connected');
-            device.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
-            await startNotifications();
+            //log('Bluetooth Device connected');
+            //device.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+			 setTimeout(async () => {
+				await startNotifications();
+			 }, 1500); 
         } catch (error) {
-            log('Argh! ' + error);
+            alert('Argh! ' + error);
         }
     }
+	
+	function formatDateTime(date) {
+	    const pad = (num) => num.toString().padStart(2, '0');
+	
+	    const year = date.getFullYear();
+	    const month = pad(date.getMonth() + 1); // 月份从 0 开始，因此需要 +1
+	    const day = pad(date.getDate());
+	
+	    const hours = pad(date.getHours());
+	    const minutes = pad(date.getMinutes());
+	    const seconds = pad(date.getSeconds());
+	
+	    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+	}
 
     function onDisconnected(event) {
-        log('Bluetooth Device disconnected');
+        alert('Bluetooth Device disconnected');
     }
 
     async function startNotifications() {
@@ -141,46 +158,48 @@
             const service = await device.gatt.getPrimaryService(serviceId);
             const characteristic = await service.getCharacteristic(characteristicIdNotify);
             await characteristic.startNotifications();
-            log('Notifications started');
+			
+			characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+            alert('Notifications started');
         } catch (error) {
-            log('Argh! ' + error);
+            alert('Argh! ' + error);
         }
     }
 
     //监听信息
     function handleCharacteristicValueChanged(event) {
         const value = event.target.value;
-        const message = new TextDecoder().decode(value);
-        log('Received: ' + message);
+		let hexString = '';
+		for (let i = 0; i < value.byteLength; i++) {
+			hexString += value.getUint8(i).toString(16).padStart(2, '0');
+		}
+		//log('Received in hex: ' + hexString);
 
-        const d = this.parseData(message);
+        const d = parseData(hexString);
         console.log(d)
         if (d && d.identifier === '81') {
             if (d.dataLength > 1) {
                 const tag = d.data.slice(0, 4)
                 if (tag === '0290') {
                     const statusMessages = {
-                        '01': this.$t('wine.sta01'),
-                        '02': this.$t('wine.sta02'),
-                        '03': this.$t('wine.sta03'),
-                        '04': this.$t('wine.sta04'),
-                        '05': this.$t('wine.sta05'),
-                        '06': this.$t('wine.sta06')
+                        '01': 'Detected the start of blowing',
+                        '02': 'Detected the end of blowing',
+                        '03': 'Detected interruption of blowing',
+                        '04': 'Detected refusal to blow',
+                        '05': 'Detected completion of alcohol calculation',
+                        '06': 'Detected expiration of calibration'
                     };
                     const sta = d.data.slice(4, 6);
                     console.log(statusMessages[sta])
-                    // uni.showToast({
-                    //   title: statusMessages[sta],
-                    //   duration: 2000
-                    // });
+                    //TODO MSG_TIP
                 } else if (tag === '0390') {
                     const valL = parseInt(d.data.slice(4, 6), 16); // 低值
                     const valH = parseInt(d.data.slice(6, 8), 16); // 高值
                     const alc = (valH * 256 + valL); // 单位为: mg/100ml
                     // %BAC = mg/100ml / 1000
                     // mg/L = mg/100ml / 200
-                    console.log('酒精含量：', alc);
-                    log(new Date(), alc + 'mg/100ml');
+                    console.log('alc val：', alc);
+                    log(formatDateTime(new Date()) + ' - ' + alc + 'mg/100ml');
                 }
             } else if (d.dataLength === 0) {
                 console.log('==> 成功切换设备显示单位');
@@ -238,9 +257,24 @@
         device.gatt.getPrimaryService(serviceId) // 替换为适当的服务UUID
             .then(service => service.getCharacteristic(characteristicIdWrite)) // 替换为适当的特性UUID
             .then(characteristic => characteristic.writeValue(data))
-            .then(() => log('Hex data sent: ' + hexString))
-            .catch(error => log('Error: ' + error));
+            .then(() => console.log('Hex data sent: ' + hexString)
+			)
+            .catch(error => console.log('Error: ' + error));
     }
+	
+	function calcCS(str) {
+				let sum = 0;
+				// 将字符串每两位分组
+				const pairs = str.match(/.{1,2}/g);
+				// 将每个分组转换为16进制并相加
+				for (let i = 0; i < pairs.length; i++) {
+					const hexValue = parseInt(pairs[i], 16);
+					sum += hexValue;
+				}
+				// 取低位并转换为16进制
+				const checksum = (sum & 0xff).toString(16).toUpperCase().padStart(2, '0');
+				return checksum;
+			}
 
     //解析
     function parseData(str) {
@@ -266,9 +300,9 @@
             const checksum = str.substring(22 + dataLength * 2, 22 + dataLength * 2 + 2);
 
             //验证校验码
-            const calcCS = this.calcCS(str.substring(0, 22 + dataLength * 2));
-            if (calcCS != checksum) {
-                console.log('校验码不正确', calcCS, checksum, str);
+            const c = calcCS(str.substring(0, 22 + dataLength * 2));
+            if (c != checksum) {
+                console.log('校验码不正确', c, checksum, str);
                 return null;
             }
 
@@ -294,6 +328,8 @@
             return null;
         }
     }
+	
+	
 </script>
 </body>
 </html>
